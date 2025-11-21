@@ -1,0 +1,1567 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- 设备监控 -->
+<div class="tab-content" id="devices">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">设备监控</h2>
+
+            <div id="devices-container" class="row">
+                <!-- 设备卡片将通过JavaScript动态加载 -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 任务监控 -->
+<div class="tab-content" id="tasks" style="display: none;">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">任务监控</h2>
+
+            <!-- 任务过滤器 -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <select class="form-select" id="task-status-filter">
+                                <option value="">所有状态</option>
+                                <option value="pending">等待中</option>
+                                <option value="running">运行中</option>
+                                <option value="completed">已完成</option>
+                                <option value="failed">失败</option>
+                                <option value="cancelled">已取消</option>
+                                <option value="timeout">超时</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="task-type-filter">
+                                <option value="">所有类型</option>
+                                <option value="matrix_multiplication">矩阵乘法</option>
+                                <option value="model_inference">模型推理</option>
+                                <option value="data_processing">数据处理</option>
+                                <option value="custom_kernel">自定义内核</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-primary" id="refresh-tasks-btn">
+                                <i class="fas fa-sync-alt me-2"></i>刷新
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#submitTaskModal">
+                                <i class="fas fa-plus me-2"></i>提交任务
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 任务列表 -->
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>类型</th>
+                            <th>状态</th>
+                            <th>优先级</th>
+                            <th>分配GPU</th>
+                            <th>提交时间</th>
+                            <th>开始时间</th>
+                            <th>结束时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tasks-table">
+                        <!-- 任务行将通过JavaScript动态加载 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 性能监控 -->
+<div class="tab-content" id="performance" style="display: none;">
+    <div class="row">
+        <div class="col-md-6">
+            <h2 class="mb-4">GPU利用率</h2>
+            <div class="card">
+                <div class="card-body">
+                    <canvas id="gpu-utilization-chart" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <h2 class="mb-4">任务完成时间</h2>
+            <div class="card">
+                <div class="card-body">
+                    <canvas id="task-completion-chart" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 日志 -->
+<div class="tab-content" id="logs" style="display: none;">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">系统日志</h2>
+
+            <div class="card">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <select class="form-select" id="log-level-filter">
+                                    <option value="">所有级别</option>
+                                    <option value="ERROR">错误</option>
+                                    <option value="WARNING">警告</option>
+                                    <option value="INFO">信息</option>
+                                    <option value="DEBUG">调试</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-primary" id="refresh-logs-btn">
+                                    <i class="fas fa-sync-alt me-2"></i>刷新
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-secondary" id="clear-logs-btn">
+                                    <i class="fas fa-trash me-2"></i>清除
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-success" id="download-logs-btn">
+                                    <i class="fas fa-download me-2"></i>下载
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="log-container" style="height: 500px; overflow-y: auto; background-color: #f8f9fa; padding: 10px; font-family: monospace;">
+                        <!-- 日志条目将通过JavaScript动态加载 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 提交任务模态框 -->
+<div class="modal fade" id="submitTaskModal" tabindex="-1" aria-labelledby="submitTaskModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="submitTaskModalLabel">提交新任务</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="task-form">
+                    <div class="mb-3">
+                        <label for="taskType" class="form-label">任务类型</label>
+                        <select class="form-select" id="taskType" required>
+                            <option value="matrix_multiplication">矩阵乘法</option>
+                            <option value="model_inference">模型推理</option>
+                            <option value="data_processing">数据处理</option>
+                            <option value="custom_kernel">自定义内核</option>
+                        </select>
+                    </div>
+
+                    <!-- 矩阵乘法参数 -->
+                    <div id="matrix-multiplication-params" class="task-params">
+                        <div class="mb-3">
+                            <label for="matrixSize" class="form-label">矩阵大小</label>
+                            <input type="number" class="form-control" id="matrixSize" min="100" max="10000" value="1024" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="matrixIterations" class="form-label">迭代次数</label>
+                            <input type="number" class="form-control" id="matrixIterations" min="1" max="100" value="10" required>
+                        </div>
+                    </div>
+
+                    <!-- 模型推理参数 -->
+                    <div id="model-inference-params" class="task-params" style="display: none;">
+                        <div class="mb-3">
+                            <label for="modelPath" class="form-label">模型路径</label>
+                            <input type="text" class="form-control" id="modelPath" placeholder="/path/to/model.pth" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="inputData" class="form-label">输入数据</label>
+                            <textarea class="form-control" id="inputData" rows="3" placeholder="输入数据或文件路径"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="batchSize" class="form-label">批大小</label>
+                            <input type="number" class="form-control" id="batchSize" min="1" max="100" value="1" required>
+                        </div>
+                    </div>
+
+                    <!-- 数据处理参数 -->
+                    <div id="data-processing-params" class="task-params" style="display: none;">
+                        <div class="mb-3">
+                            <label for="dataOperation" class="form-label">操作类型</label>
+                            <select class="form-select" id="dataOperation">
+                                <option value="filter">过滤</option>
+                                <option value="transform">变换</option>
+                                <option value="reduce">归约</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="dataSize" class="form-label">数据大小</label>
+                            <input type="number" class="form-control" id="dataSize" min="1000" max="10000000" value="1000000" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="dataIterations" class="form-label">迭代次数</label>
+                            <input type="number" class="form-control" id="dataIterations" min="1" max="100" value="10" required>
+                        </div>
+                    </div>
+
+                    <!-- 自定义内核参数 -->
+                    <div id="custom-kernel-params" class="task-params" style="display: none;">
+                        <div class="mb-3">
+                            <label for="kernelCode" class="form-label">内核代码</label>
+                            <textarea class="form-control" id="kernelCode" rows="10" placeholder="输入CUDA或OpenCL内核代码" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="kernelName" class="form-label">内核函数名</label>
+                            <input type="text" class="form-control" id="kernelName" placeholder="custom_kernel" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="inputData" class="form-label">输入数据</label>
+                            <textarea class="form-control" id="inputData" rows="3" placeholder="输入数据或文件路径"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="outputSize" class="form-label">输出大小</label>
+                            <input type="number" class="form-control" id="outputSize" min="1" max="1000000" value="1000" required>
+                        </div>
+                    </div>
+
+                    <!-- 通用参数 -->
+                    <div class="mb-3">
+                        <label for="taskPriority" class="form-label">优先级</label>
+                        <select class="form-select" id="taskPriority">
+                            <option value="0">低</option>
+                            <option value="1" selected>普通</option>
+                            <option value="2">高</option>
+                            <option value="3">紧急</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="submit-task-btn">提交</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 初始化
+document.addEventListener('DOMContentLoaded', function() {
+    // 初始化标签页切换
+    initTabs();
+
+    // 加载设备列表
+    loadDevices();
+
+    // 设置任务类型切换事件
+    document.getElementById('taskType').addEventListener('change', function() {
+        // 隐藏所有参数区域
+        document.querySelectorAll('.task-params').forEach(el => {
+            el.style.display = 'none';
+        });
+
+        // 显示对应参数区域
+        const taskType = this.value;
+        if (taskType === 'matrix_multiplication') {
+            document.getElementById('matrix-multiplication-params').style.display = 'block';
+        } else if (taskType === 'model_inference') {
+            document.getElementById('model-inference-params').style.display = 'block';
+        } else if (taskType === 'data_processing') {
+            document.getElementById('data-processing-params').style.display = 'block';
+        } else if (taskType === 'custom_kernel') {
+            document.getElementById('custom-kernel-params').style.display = 'block';
+        }
+    });
+
+    // 设置提交任务按钮事件
+    document.getElementById('submit-task-btn').addEventListener('click', submitTask);
+
+    // 设置刷新按钮事件
+    document.getElementById('refresh-tasks-btn').addEventListener('click', loadTasks);
+
+    // 设置任务过滤器事件
+    document.getElementById('task-status-filter').addEventListener('change', filterTasks);
+    document.getElementById('task-type-filter').addEventListener('change', filterTasks);
+});
+
+// 初始化标签页
+function initTabs() {
+    const navLinks = document.querySelectorAll('.nav-link[data-bs-toggle="pill"]');
+
+    navLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+
+            // 隐藏所有标签页内容
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.style.display = 'none';
+            });
+
+            // 移除所有活动状态
+            navLinks.forEach(l => {
+                l.classList.remove('active');
+            });
+
+            // 显示对应标签页内容
+            const tabId = this.getAttribute('href');
+            document.querySelector(tabId).style.display = 'block';
+
+            // 添加活动状态
+            this.classList.add('active');
+        });
+    });
+}
+
+// 加载设备列表
+function loadDevices() {
+    fetch('/api/devices')
+        .then(response => response.json())
+        .then(devices => {
+            const container = document.getElementById('devices-container');
+            container.innerHTML = '';
+
+            devices.forEach(device => {
+                const card = createDeviceCard(device);
+                container.appendChild(card);
+            });
+        })
+        .catch(error => {
+            console.error('加载设备列表失败:', error);
+            alert('加载设备列表失败，请检查网络连接');
+        });
+}
+
+// 创建设备卡片
+function createDeviceCard(device) {
+    const col = document.createElement('div');
+    col.className = 'col-md-4 mb-4';
+
+    const card = document.createElement('div');
+    card.className = 'card gpu-card';
+
+    const header = document.createElement('div');
+    header.className = 'card-header';
+    header.textContent = `${device.hostname} (${device.platform})`;
+
+    const body = document.createElement('div');
+    body.className = 'card-body';
+
+    // 设备状态
+    const statusBadge = document.createElement('span');
+    statusBadge.className = `badge bg-${device.status === 'online' ? 'success' : 'danger'} ms-2`;
+    statusBadge.textContent = device.status === 'online' ? '在线' : '离线';
+
+    // GPU信息
+    const gpuList = document.createElement('div');
+    gpuList.className = 'mt-3';
+
+    device.gpus.forEach(gpu => {
+        const gpuInfo = document.createElement('div');
+        gpuInfo.className = 'mb-2';
+        gpuInfo.innerHTML = `
+            <div class="d-flex justify-content-between">
+                <span>${gpu.name}</span>
+                <span class="badge bg-${gpu.is_available ? 'success' : 'secondary'}">
+                    ${gpu.is_available ? '可用' : '忙碌'}
+                </span>
+            </div>
+            <div class="progress mt-2">
+                <div class="progress-bar" role="progressbar" style="width: ${gpu.utilization}%">
+                    ${gpu.utilization}%
+                </div>
+            </div>
+            <div class="small text-muted mt-1">
+                内存: ${gpu.memory_used}MB / ${gpu.memory_total}MB | 
+                温度: ${gpu.temperature}°C | 
+                功耗: ${gpu.power_usage}W
+            </div>
+        `;
+
+        gpuList.appendChild(gpuInfo);
+    });
+
+    // 最后心跳时间
+    const lastHeartbeat = document.createElement('div');
+    lastHeartbeat.className = 'small text-muted mt-2';
+    lastHeartbeat.textContent = `最后心跳: ${new Date(device.last_heartbeat * 1000).toLocaleString()}`;
+
+    // 组装卡片
+    body.appendChild(statusBadge);
+    body.appendChild(gpuList);
+    body.appendChild(lastHeartbeat);
+
+    card.appendChild(header);
+    card.appendChild(body);
+    col.appendChild(card);
+
+    return col;
+}
+
+// 加载任务列表
+function loadTasks() {
+    fetch('/api/tasks')
+        .then(response => response.json())
+        .then(tasks => {
+            const tableBody = document.getElementById('tasks-table');
+            tableBody.innerHTML = '';
+
+            tasks.forEach(task => {
+                const row = createTaskRow(task);
+                tableBody.appendChild(row);
+            });
+
+            // 更新图表
+            updatePerformanceCharts(tasks);
+        })
+        .catch(error => {
+            console.error('加载任务列表失败:', error);
+            alert('加载任务列表失败，请检查网络连接');
+        });
+}
+
+// 创建任务行
+function createTaskRow(task) {
+    const row = document.createElement('tr');
+
+    // 任务ID
+    const idCell = document.createElement('td');
+    idCell.textContent = task.id;
+
+    // 任务类型
+    const typeCell = document.createElement('td');
+    typeCell.textContent = task.type;
+
+    // 任务状态
+    const statusCell = document.createElement('td');
+    const statusBadge = document.createElement('span');
+    statusBadge.className = `badge task-status-${task.status}`;
+
+    switch(task.status) {
+        case 'pending':
+            statusBadge.textContent = '等待中';
+            break;
+        case 'running':
+            statusBadge.textContent = '运行中';
+            break;
+        case 'completed':
+            statusBadge.textContent = '已完成';
+            break;
+        case 'failed':
+            statusBadge.textContent = '失败';
+            break;
+        case 'cancelled':
+            statusBadge.textContent = '已取消';
+            break;
+        case 'timeout':
+            statusBadge.textContent = '超时';
+            break;
+        default:
+            statusBadge.textContent = task.status;
+    }
+
+    statusCell.appendChild(statusBadge);
+
+    // 任务优先级
+    const priorityCell = document.createElement('td');
+    let priorityText = '普通';
+
+    switch(task.priority) {
+        case 0:
+            priorityText = '低';
+            break;
+        case 1:
+            priorityText = '普通';
+            break;
+        case 2:
+            priorityText = '高';
+            break;
+        case 3:
+            priorityText = '紧急';
+            break;
+    }
+
+    priorityCell.textContent = priorityText;
+
+    // 分配GPU
+    const gpuCell = document.createElement('td');
+    gpuCell.textContent = task.assigned_gpu_id || '-';
+
+    // 提交时间
+    const submitTimeCell = document.createElement('td');
+    submitTimeCell.textContent = task.submit_time ? new Date(task.submit_time * 1000).toLocaleString() : '-';
+
+    // 开始时间
+    const startTimeCell = document.createElement('td');
+    startTimeCell.textContent = task.start_time ? new Date(task.start_time * 1000).toLocaleString() : '-';
+
+    // 结束时间
+    const endTimeCell = document.createElement('td');
+    endTimeCell.textContent = task.end_time ? new Date(task.end_time * 1000).toLocaleString() : '-';
+
+    // 操作
+    const actionCell = document.createElement('td');
+
+    if (task.status === 'pending') {
+        const cancelButton = document.createElement('button');
+        cancelButton.className = 'btn btn-sm btn-danger';
+        cancelButton.textContent = '取消';
+        cancelButton.addEventListener('click', () => cancelTask(task.id));
+
+        actionCell.appendChild(cancelButton);
+    } else if (task.status === 'completed') {
+        const viewButton = document.createElement('button');
+        viewButton.className = 'btn btn-sm btn-primary';
+        viewButton.textContent = '查看结果';
+        viewButton.addEventListener('click', () => viewTaskResult(task.id));
+
+        actionCell.appendChild(viewButton);
+    }
+
+    // 组装行
+    row.appendChild(idCell);
+    row.appendChild(typeCell);
+    row.appendChild(statusCell);
+    row.appendChild(priorityCell);
+    row.appendChild(gpuCell);
+    row.appendChild(submitTimeCell);
+    row.appendChild(startTimeCell);
+    row.appendChild(endTimeCell);
+    row.appendChild(actionCell);
+
+    return row;
+}
+
+// 过滤任务
+function filterTasks() {
+    const statusFilter = document.getElementById('task-status-filter').value;
+    const typeFilter = document.getElementById('task-type-filter').value;
+
+    const rows = document.querySelectorAll('#tasks-table tr');
+
+    rows.forEach(row => {
+        const status = row.querySelector('.task-status-pending, .task-status-running, .task-status-completed, .task-status-failed, .task-status-cancelled, .task-status-timeout');
+        const type = row.cells[1].textContent;
+
+        let show = true;
+
+        if (statusFilter && status.textContent !== getStatusText(statusFilter)) {
+            show = false;
+        }
+
+        if (typeFilter && type !== typeFilter) {
+            show = false;
+        }
+
+        row.style.display = show ? '' : 'none';
+    });
+}
+
+// 获取状态文本
+function getStatusText(status) {
+    switch(status) {
+        case 'pending':
+            return '等待中';
+        case 'running':
+            return '运行中';
+        case 'completed':
+            return '已完成';
+        case 'failed':
+            return '失败';
+        case 'cancelled':
+            return '已取消';
+        case 'timeout':
+            return '超时';
+        default:
+            return status;
+    }
+}
+
+// 提交任务
+function submitTask() {
+    const taskType = document.getElementById('taskType').value;
+    let parameters = {};
+
+    // 根据任务类型获取参数
+    if (taskType === 'matrix_multiplication') {
+        parameters = {
+            size: parseInt(document.getElementById('matrixSize').value),
+            iterations: parseInt(document.getElementById('matrixIterations').value)
+        };
+    } else if (taskType === 'model_inference') {
+        parameters = {
+            model_path: document.getElementById('modelPath').value,
+            input_data: document.getElementById('inputData').value,
+            batch_size: parseInt(document.getElementById('batchSize').value)
+        };
+    } else if (taskType === 'data_processing') {
+        parameters = {
+            operation: document.getElementById('dataOperation').value,
+            data_size: parseInt(document.getElementById('dataSize').value),
+            iterations: parseInt(document.getElementById('dataIterations').value)
+        };
+    } else if (taskType === 'custom_kernel') {
+        parameters = {
+            kernel_code: document.getElementById('kernelCode').value,
+            kernel_name: document.getElementById('kernelName').value,
+            input_data: document.getElementById('inputData').value,
+            output_size: parseInt(document.getElementById('outputSize').value)
+        };
+    }
+
+    // 提交任务
+    fetch('/api/tasks', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            type: taskType,
+            priority: parseInt(document.getElementById('taskPriority').value),
+            parameters: parameters
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // 关闭模态框
+            const modal = bootstrap.Modal.getInstance(document.getElementById('submitTaskModal'));
+            modal.hide();
+
+            // 刷新任务列表
+            loadTasks();
+
+            // 显示成功消息
+            alert('任务提交成功');
+        } else {
+            alert('任务提交失败: ' + (data.error || '未知错误'));
+        }
+    })
+    .catch(error => {
+        console.error('提交任务失败:', error);
+        alert('任务提交失败，请检查网络连接');
+    });
+}
+
+// 取消任务
+function cancelTask(taskId) {
+    if (confirm('确定要取消这个任务吗？')) {
+        fetch(`/api/tasks/${taskId}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 刷新任务列表
+                loadTasks();
+
+                // 显示成功消息
+                alert('任务已取消');
+            } else {
+                alert('取消任务失败: ' + (data.error || '未知错误'));
+            }
+        })
+        .catch(error => {
+            console.error('取消任务失败:', error);
+            alert('取消任务失败，请检查网络连接');
+        });
+    }
+}
+
+// 查看任务结果
+function viewTaskResult(taskId) {
+    fetch(`/api/tasks/${taskId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.result) {
+                // 创建结果模态框
+                const modal = document.createElement('div');
+                modal.className = 'modal fade';
+                modal.id = 'taskResultModal';
+                modal.setAttribute('tabindex', '-1');
+                modal.setAttribute('aria-labelledby', 'taskResultModalLabel');
+                modal.setAttribute('aria-hidden', 'true');
+
+                modal.innerHTML = `
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="taskResultModalLabel">任务结果</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <pre>${JSON.stringify(data.result, null, 2)}</pre>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // 添加到页面
+                document.body.appendChild(modal);
+
+                // 显示模态框
+                const bsModal = new bootstrap.Modal(modal);
+                bsModal.show();
+
+                // 模态框关闭时移除
+                modal.addEventListener('hidden.bs.modal', function() {
+                    document.body.removeChild(modal);
+                });
+            } else {
+                alert('获取任务结果失败');
+            }
+        })
+        .catch(error => {
+            console.error('获取任务结果失败:', error);
+            alert('获取任务结果失败，请检查网络连接');
+        });
+    }
+}
+
+// 更新性能图表
+function updatePerformanceCharts(tasks) {
+    // GPU利用率图表
+    const utilizationCtx = document.getElementById('gpu-utilization-chart').getContext('2d');
+    const utilizationChart = new Chart(utilizationCtx, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'GPU利用率 (%)',
+                data: [],
+                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            }
+        }
+    });
+
+    // 任务完成时间图表
+    const completionCtx = document.getElementById('task-completion-chart').getContext('2d');
+    const completionChart = new Chart(completionCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: '任务完成时间 (秒)',
+                data: [],
+                backgroundColor: 'rgba(25, 135, 84, 0.2)',
+                borderColor: 'rgba(25, 135, 84, 1)',
+                borderWidth: 1,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // 收集数据
+    const gpuUtilization = {};
+    const taskCompletionTimes = [];
+
+    // 按时间排序任务
+    const sortedTasks = tasks.filter(task => task.end_time).sort((a, b) => a.end_time - b.end_time);
+
+    // 提取最近10个完成的任务
+    const recentTasks = sortedTasks.slice(-10);
+
+    // 计算GPU平均利用率
+    tasks.forEach(task => {
+        if (task.assigned_gpu_id) {
+            if (!gpuUtilization[task.assigned_gpu_id]) {
+                gpuUtilization[task.assigned_gpu_id] = {
+                    total: 0,
+                    count: 0
+                };
+            }
+
+            // 这里应该从GPU信息中获取实际利用率
+            // 为了简化，使用随机值
+            gpuUtilization[task.assigned_gpu_id].total += Math.random() * 100;
+            gpuUtilization[task.assigned_gpu_id].count += 1;
+        }
+    });
+
+    // 更新图表数据
+    for (const gpuId in gpuUtilization) {
+        const avgUtilization = gpuUtilization[gpuId].total / gpuUtilization[gpuId].count;
+
+        utilizationChart.data.labels.push(gpuId);
+        utilizationChart.data.datasets[0].data.push(avgUtilization);
+    }
+
+    // 更新任务完成时间数据
+    recentTasks.forEach(task => {
+        const completionTime = (task.end_time - task.start_time) / 1000; // 转换为秒
+        completionChart.data.labels.push(new Date(task.end_time * 1000).toLocaleTimeString());
+        completionChart.data.datasets[0].data.push(completionTime);
+    });
+
+    // 更新图表
+    utilizationChart.update();
+    completionChart.update();
+}
+</script>
+{% endblock %}ta').value,
+            batch_size: parseInt(document.getElementById('batchSize').value)
+        };
+    } else if (taskType === 'data_processing') {
+        parameters = {
+            operation: document.getElementById('dataOperation').value,
+            data_size: parseInt(document.getElementById('dataSize').value),
+            iterations: parseInt(document.getElementById('dataIterations').value)
+        };
+    } else if (taskType === 'custom_kernel') {
+        parameters = {
+            kernel_code: document.getElementById('kernelCode').value,
+            kernel_name: document.getElementById('kernelName').value,
+            input_data: document.getElementById('inputData').value,
+            output_size: parseInt(document.getElementById('outputSize').value)
+        };
+    }
+
+    // 添加优先级
+    parameters.priority = parseInt(document.getElementById('taskPriority').value);
+
+    // 发送请求
+    fetch('/api/tasks', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            type: taskType,
+            parameters: parameters
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`任务提交成功，ID: ${data.task_id}`);
+
+            // 关闭模态框
+            const modal = bootstrap.Modal.getInstance(document.getElementById('submitTaskModal'));
+            modal.hide();
+
+            // 刷新任务列表
+            loadTasks();
+        } else {
+            alert(`任务提交失败: ${data.error || '未知错误'}`);
+        }
+    })
+    .catch(error => {
+        console.error('提交任务失败:', error);
+        alert('提交任务失败，请检查网络连接');
+    });
+}
+
+// 取消任务
+function cancelTask(taskId) {
+    if (!confirm('确定要取消这个任务吗？')) {
+        return;
+    }
+
+    fetch(`/api/tasks/${taskId}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('任务取消成功');
+            loadTasks();
+        } else {
+            alert(`任务取消失败: ${data.error || '未知错误'}`);
+        }
+    })
+    .catch(error => {
+        console.error('取消任务失败:', error);
+        alert('取消任务失败，请检查网络连接');
+    });
+}
+
+// 查看任务结果
+function viewTaskResult(taskId) {
+    fetch(`/api/tasks/${taskId}`)
+        .then(response => response.json())
+    .then(task => {
+        // 创建结果模态框
+        const modal = document.createElement('div');
+        modal.className = 'modal fade';
+        modal.id = 'taskResultModal';
+        modal.innerHTML = `
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">任务结果</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <pre>${JSON.stringify(task.result, null, 2)}</pre>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // 显示模态框
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+
+        // 模态框关闭时移除DOM
+        modal.addEventListener('hidden.bs.modal', () => {
+            document.body.removeChild(modal);
+        });
+    })
+    .catch(error => {
+        console.error('获取任务结果失败:', error);
+        alert('获取任务结果失败，请检查网络连接');
+    });
+}
+
+// 更新性能图表
+function updatePerformanceCharts(tasks) {
+    // GPU利用率图表
+    const gpuUtilizationCtx = document.getElementById('gpu-utilization-chart').getContext('2d');
+    const gpuUtilizationChart = new Chart(gpuUtilizationCtx, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'GPU利用率 (%)',
+                data: [],
+                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            }
+        }
+    });
+
+    // 任务完成时间图表
+    const taskCompletionCtx = document.getElementById('task-completion-chart').getContext('2d');
+    const taskCompletionChart = new Chart(taskCompletionCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: '任务完成时间 (秒)',
+                data: [],
+                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                borderColor: 'rgba(255, 99, 132, 1)',
+                borderWidth: 1,
+                fill: false
+            }]
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // 统计已完成任务
+    const completedTasks = tasks.filter(task => task.status === 'completed');
+
+    // 按GPU分组统计
+    const gpuStats = {};
+
+    completedTasks.forEach(task => {
+        const gpuId = task.assigned_gpu_id;
+        if (!gpuId) return;
+
+        if (!gpuStats[gpuId]) {
+            gpuStats[gpuId] = {
+                count: 0,
+                totalTime: 0
+            };
+        }
+
+        gpuStats[gpuId].count++;
+        gpuStats[gpuId].totalTime += (task.end_time - task.start_time);
+    });
+
+    // 更新图表数据
+    Object.keys(gpuStats).forEach(gpuId => {
+        const avgTime = gpuStats[gpuId].totalTime / gpuStats[gpuId].count;
+
+        gpuUtilizationChart.data.labels.push(gpuId);
+        gpuUtilizationChart.data.datasets[0].data.push(75); // 示例数据
+
+        taskCompletionChart.data.labels.push(gpuId);
+        taskCompletionChart.data.datasets[0].data.push(avgTime);
+    });
+
+    // 更新图表
+    gpuUtilizationChart.update();
+    taskCompletionChart.update();
+}
+</script>
+{% endblock %} <select class="form-select" id="taskPriority">
+                            <option value="0">低</option>
+                            <option value="1" selected>普通</option>
+                            <option value="2">高</option>
+                            <option value="3">紧急</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="taskTimeout" class="form-label">超时时间(秒)</label>
+                        <input type="number" class="form-control" id="taskTimeout" min="0" max="3600" value="300">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="submit-task-btn">提交</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // 全局变量
+    let devices = [];
+    let tasks = [];
+    let logs = [];
+
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        // 加载设备
+        loadDevices();
+
+        // 加载任务
+        loadTasks();
+
+        // 设置事件监听器
+        setupEventListeners();
+
+        // 设置定时刷新
+        setInterval(loadDevices, 5000);  // 每5秒刷新设备
+        setInterval(loadTasks, 3000);   // 每3秒刷新任务
+    });
+
+    // 设置事件监听器
+    function setupEventListeners() {
+        // 侧边栏导航
+        document.querySelectorAll('.sidebar .nav-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+
+                // 隐藏所有内容
+                document.querySelectorAll('.tab-content').forEach(tab => {
+                    tab.style.display = 'none';
+                });
+
+                // 移除所有活动状态
+                document.querySelectorAll('.sidebar .nav-link').forEach(navLink => {
+                    navLink.classList.remove('active');
+                });
+
+                // 显示选中的内容
+                const targetId = this.getAttribute('href').substring(1);
+                const targetContent = document.getElementById(targetId);
+                if (targetContent) {
+                    targetContent.style.display = 'block';
+                }
+
+                // 添加活动状态
+                this.classList.add('active');
+            });
+        });
+
+        // 任务类型选择
+        document.getElementById('taskType').addEventListener('change', function() {
+            // 隐藏所有参数区域
+            document.querySelectorAll('.task-params').forEach(params => {
+                params.style.display = 'none';
+            });
+
+            // 显示选中的参数区域
+            const selectedType = this.value;
+            const paramsDiv = document.getElementById(selectedType + '-params');
+            if (paramsDiv) {
+                paramsDiv.style.display = 'block';
+            }
+        });
+
+        // 提交任务按钮
+        document.getElementById('submit-task-btn').addEventListener('click', submitTask);
+
+        // 刷新按钮
+        document.getElementById('refresh-tasks-btn').addEventListener('click', loadTasks);
+        document.getElementById('refresh-logs-btn').addEventListener('click', loadLogs);
+
+        // 清除日志按钮
+        document.getElementById('clear-logs-btn').addEventListener('click', function() {
+            document.getElementById('log-container').innerHTML = '';
+            logs = [];
+        });
+
+        // 下载日志按钮
+        document.getElementById('download-logs-btn').addEventListener('click', downloadLogs);
+
+        // 过滤器
+        document.getElementById('task-status-filter').addEventListener('change', filterTasks);
+        document.getElementById('task-type-filter').addEventListener('change', filterTasks);
+        document.getElementById('log-level-filter').addEventListener('change', filterLogs);
+    }
+
+    // 加载设备
+    function loadDevices() {
+        fetch('/api/gpus')
+            .then(response => response.json())
+            .then(data => {
+                devices = data;
+                renderDevices();
+
+                // 更新性能图表
+                updatePerformanceCharts();
+            })
+            .catch(error => console.error('加载设备失败:', error));
+    }
+
+    // 渲染设备
+    function renderDevices() {
+        const container = document.getElementById('devices-container');
+        container.innerHTML = '';
+
+        devices.forEach(device => {
+            // 创建设备卡片
+            const card = document.createElement('div');
+            card.className = 'col-md-4 mb-4';
+
+            // 根据GPU状态设置颜色
+            let statusColor = 'success';
+            if (!device.is_available) {
+                statusColor = 'danger';
+            } else if (device.utilization > 80) {
+                statusColor = 'warning';
+            }
+
+            card.innerHTML = `
+                <div class="card gpu-card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">${device.name}</h5>
+                        <span class="badge bg-${statusColor}">${device.is_available ? '可用' : '忙碌'}</span>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">
+                            <strong>ID:</strong> ${device.gpu_id}<br>
+                            <strong>Worker:</strong> ${device.worker_id}<br>
+                            <strong>内存:</strong> ${device.memory_used} MB / ${device.memory_total} MB<br>
+                            <strong>利用率:</strong> ${device.utilization}%<br>
+                            <strong>温度:</strong> ${device.temperature}°C<br>
+                            <strong>功耗:</strong> ${device.power_usage} W
+                        </p>
+                        <div class="progress mb-2" style="height: 10px;">
+                            <div class="progress-bar bg-${statusColor}" role="progressbar" style="width: ${device.utilization}%"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            container.appendChild(card);
+        });
+    }
+
+    // 加载任务
+    function loadTasks() {
+        fetch('/api/tasks')
+            .then(response => response.json())
+            .then(data => {
+                tasks = data;
+                renderTasks();
+            })
+            .catch(error => console.error('加载任务失败:', error));
+    }
+
+    // 渲染任务
+    function renderTasks() {
+        const tbody = document.getElementById('tasks-table');
+        tbody.innerHTML = '';
+
+        // 获取过滤器值
+        const statusFilter = document.getElementById('task-status-filter').value;
+        const typeFilter = document.getElementById('task-type-filter').value;
+
+        // 过滤任务
+        const filteredTasks = tasks.filter(task => {
+            if (statusFilter && task.status !== statusFilter) {
+                return false;
+            }
+            if (typeFilter && task.task_type !== typeFilter) {
+                return false;
+            }
+            return true;
+        });
+
+        // 渲染任务行
+        filteredTasks.forEach(task => {
+            const row = document.createElement('tr');
+
+            // 格式化时间
+            const submitTime = task.submit_time ? new Date(task.submit_time * 1000).toLocaleString() : '-';
+            const startTime = task.start_time ? new Date(task.start_time * 1000).toLocaleString() : '-';
+            const endTime = task.end_time ? new Date(task.end_time * 1000).toLocaleString() : '-';
+
+            // 状态样式
+            let statusClass = '';
+            switch(task.status) {
+                case 'pending': statusClass = 'task-status-pending'; break;
+                case 'running': statusClass = 'task-status-running'; break;
+                case 'completed': statusClass = 'task-status-completed'; break;
+                case 'failed': statusClass = 'task-status-failed'; break;
+                case 'cancelled': statusClass = 'task-status-cancelled'; break;
+                case 'timeout': statusClass = 'task-status-timeout'; break;
+            }
+
+            // 优先级文本
+            let priorityText = '普通';
+            switch(task.priority) {
+                case 0: priorityText = '低'; break;
+                case 1: priorityText = '普通'; break;
+                case 2: priorityText = '高'; break;
+                case 3: priorityText = '紧急'; break;
+            }
+
+            row.innerHTML = `
+                <td>${task.task_id}</td>
+                <td>${getTaskTypeText(task.task_type)}</td>
+                <td><span class="${statusClass}">${getStatusText(task.status)}</span></td>
+                <td>${priorityText}</td>
+                <td>${task.assigned_gpu_id || '-'}</td>
+                <td>${submitTime}</td>
+                <td>${startTime}</td>
+                <td>${endTime}</td>
+                <td>
+                    <button class="btn btn-sm btn-info" onclick="viewTaskDetails('${task.task_id}')">
+                        <i class="fas fa-info-circle"></i>
+                    </button>
+                    ${task.status === 'pending' || task.status === 'running' ? 
+                        `<button class="btn btn-sm btn-danger" onclick="cancelTask('${task.task_id}')">
+                            <i class="fas fa-times"></i>
+                        </button>` : ''}
+                </td>
+            `;
+
+            tbody.appendChild(row);
+        });
+    }
+
+    // 获取任务类型文本
+    function getTaskTypeText(type) {
+        switch(type) {
+            case 'matrix_multiplication': return '矩阵乘法';
+            case 'model_inference': return '模型推理';
+            case 'data_processing': return '数据处理';
+            case 'custom_kernel': return '自定义内核';
+            default: return type;
+        }
+    }
+
+    // 获取状态文本
+    function getStatusText(status) {
+        switch(status) {
+            case 'pending': return '等待中';
+            case 'running': return '运行中';
+            case 'completed': return '已完成';
+            case 'failed': return '失败';
+            case 'cancelled': return '已取消';
+            case 'timeout': return '超时';
+            default: return status;
+        }
+    }
+
+    // 过滤任务
+    function filterTasks() {
+        renderTasks();
+    }
+
+    // 查看任务详情
+    function viewTaskDetails(taskId) {
+        fetch(`/api/tasks/${taskId}`)
+            .then(response => response.json())
+            .then(data => {
+                // 显示任务详情模态框
+                alert(JSON.stringify(data, null, 2));
+            })
+            .catch(error => console.error('获取任务详情失败:', error));
+    }
+
+    // 取消任务
+    function cancelTask(taskId) {
+        if (confirm('确定要取消这个任务吗？')) {
+            fetch(`/api/tasks/${taskId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // 重新加载任务列表
+                    loadTasks();
+                } else {
+                    alert('取消任务失败: ' + (data.error || '未知错误'));
+                }
+            })
+            .catch(error => console.error('取消任务失败:', error));
+        }
+    }
+
+    // 提交任务
+    function submitTask() {
+        const taskType = document.getElementById('taskType').value;
+        const priority = parseInt(document.getElementById('taskPriority').value);
+        const timeout = parseInt(document.getElementById('taskTimeout').value);
+
+        // 根据任务类型收集参数
+        let parameters = {};
+
+        if (taskType === 'matrix_multiplication') {
+            parameters = {
+                size: parseInt(document.getElementById('matrixSize').value),
+                iterations: parseInt(document.getElementById('matrixIterations').value)
+            };
+        } else if (taskType === 'model_inference') {
+            parameters = {
+                model_path: document.getElementById('modelPath').value,
+                input_data: document.getElementById('inputData').value,
+                batch_size: parseInt(document.getElementById('batchSize').value)
+            };
+        } else if (taskType === 'data_processing') {
+            parameters = {
+                operation: document.getElementById('dataOperation').value,
+                data_size: parseInt(document.getElementById('dataSize').value),
+                iterations: parseInt(document.getElementById('dataIterations').value)
+            };
+        } else if (taskType === 'custom_kernel') {
+            parameters = {
+                kernel_code: document.getElementById('kernelCode').value,
+                kernel_name: document.getElementById('kernelName').value,
+                input_data: document.getElementById('inputData').value,
+                output_size: parseInt(document.getElementById('outputSize').value)
+            };
+        }
+
+        // 提交任务
+        fetch('/api/tasks', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                type: taskType,
+                priority: priority,
+                timeout: timeout,
+                parameters: parameters
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 关闭模态框
+                const modal = bootstrap.Modal.getInstance(document.getElementById('submitTaskModal'));
+                modal.hide();
+
+                // 重新加载任务列表
+                loadTasks();
+
+                // 显示成功消息
+                alert('任务提交成功: ' + data.task_id);
+            } else {
+                alert('任务提交失败: ' + (data.error || '未知错误'));
+            }
+        })
+        .catch(error => console.error('提交任务失败:', error));
+    }
+
+    // 更新性能图表
+    function updatePerformanceCharts() {
+        // GPU利用率图表
+        const utilizationCtx = document.getElementById('gpu-utilization-chart').getContext('2d');
+        new Chart(utilizationCtx, {
+            type: 'bar',
+            data: {
+                labels: devices.map(d => d.name),
+                datasets: [{
+                    label: 'GPU利用率 (%)',
+                    data: devices.map(d => d.utilization),
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100
+                    }
+                }
+            }
+        });
+
+        // 任务完成时间图表
+        const completionCtx = document.getElementById('task-completion-chart').getContext('2d');
+
+        // 按类型统计任务完成时间
+        const completedTasks = tasks.filter(t => t.status === 'completed');
+        const taskTypes = ['matrix_multiplication', 'model_inference', 'data_processing', 'custom_kernel'];
+        const typeLabels = taskTypes.map(t => getTaskTypeText(t));
+
+        const completionTimes = taskTypes.map(type => {
+            const typeTasks = completedTasks.filter(t => t.task_type === type);
+            if (typeTasks.length === 0) return 0;
+
+            // 计算平均完成时间
+            const totalTime = typeTasks.reduce((sum, t) => {
+                return sum + (t.end_time - t.start_time);
+            }, 0);
+
+            return totalTime / typeTasks.length;
+        });
+
+        new Chart(completionCtx, {
+            type: 'bar',
+            data: {
+                labels: typeLabels,
+                datasets: [{
+                    label: '平均完成时间 (秒)',
+                    data: completionTimes,
+                    backgroundColor: 'rgba(25, 135, 84, 0.2)',
+                    borderColor: 'rgba(25, 135, 84, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
+    // 加载日志
+    function loadLogs() {
+        fetch('/api/logs')
+            .then(response => response.json())
+            .then(data => {
+                logs = data;
+                renderLogs();
+            })
+            .catch(error => console.error('加载日志失败:', error));
+    }
+
+    // 渲染日志
+    function renderLogs() {
+        const container = document.getElementById('log-container');
+        container.innerHTML = '';
+
+        // 获取过滤器值
+        const levelFilter = document.getElementById('log-level-filter').value;
+
+        // 过滤日志
+        const filteredLogs = logs.filter(log => {
+            if (levelFilter && log.level !== levelFilter) {
+                return false;
+            }
+            return true;
+        });
+
+        // 渲染日志条目
+        filteredLogs.forEach(log => {
+            const logEntry = document.createElement('div');
+
+            // 根据日志级别设置颜色
+            let logClass = '';
+            switch(log.level) {
+                case 'ERROR': logClass = 'text-danger'; break;
+                case 'WARNING': logClass = 'text-warning'; break;
+                case 'INFO': logClass = 'text-info'; break;
+                case 'DEBUG': logClass = 'text-muted'; break;
+            }
+
+            // 格式化时间
+            const timestamp = new Date(log.timestamp * 1000).toLocaleString();
+
+            logEntry.innerHTML = `
+                <div class="mb-2">
+                    <span class="${logClass}">[${timestamp}] [${log.level}]</span> ${log.message}
+                </div>
+            `;
+
+            container.appendChild(logEntry);
+        });
+
+        // 滚动到底部
+        container.scrollTop = container.scrollHeight;
+    }
+
+    // 过滤日志
+    function filterLogs() {
+        renderLogs();
+    }
+
+    // 下载日志
+    function downloadLogs() {
+        const dataStr = JSON.stringify(logs, null, 2);
+        const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+
+        const exportFileDefaultName = `gpu-share-logs-${new Date().toISOString().slice(0,10)}.json`;
+
+        const linkElement = document.createElement('a');
+        linkElement.setAttribute('href', dataUri);
+        linkElement.setAttribute('download', exportFileDefaultName);
+        linkElement.click();
+    }
+</script>
+{% endblock %}

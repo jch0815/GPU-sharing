@@ -1,0 +1,125 @@
+syntax = "proto3";
+
+package gpu_share;
+
+// GPU信息
+message GPUInfo {
+  string gpu_id = 1;
+  string name = 2;
+  int32 memory_total = 3;
+  int32 memory_used = 4;
+  float utilization = 5;
+  float temperature = 6;
+  float power_usage = 7;
+  string compute_capability = 8;
+  bool is_available = 9;
+}
+
+// Worker信息
+message WorkerInfo {
+  string worker_id = 1;
+  string hostname = 2;
+  string platform = 3;
+  string status = 4;
+  int64 last_heartbeat = 5;
+  repeated GPUInfo gpus = 6;
+}
+
+// 注册Worker请求
+message RegisterWorkerRequest {
+  string worker_id = 1;
+  string hostname = 2;
+  string platform = 3;
+  repeated GPUInfo gpus = 4;
+}
+
+// 注册Worker响应
+message RegisterWorkerResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// 更新Worker GPU请求
+message UpdateWorkerGpusRequest {
+  string worker_id = 1;
+  repeated GPUInfo gpus = 2;
+}
+
+// 更新Worker GPU响应
+message UpdateWorkerGpusResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// 更新Worker心跳请求
+message UpdateWorkerHeartbeatRequest {
+  string worker_id = 1;
+}
+
+// 更新Worker心跳响应
+message UpdateWorkerHeartbeatResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// 提交任务请求
+message SubmitTaskRequest {
+  string task_type = 1;
+  map<string, string> parameters = 2;
+  int32 priority = 3;
+}
+
+// 提交任务响应
+message SubmitTaskResponse {
+  string task_id = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+// 取消任务请求
+message CancelTaskRequest {
+  string task_id = 1;
+}
+
+// 取消任务响应
+message CancelTaskResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// 获取任务结果请求
+message GetTaskResultRequest {
+  string task_id = 1;
+}
+
+// 获取任务结果响应
+message GetTaskResultResponse {
+  bool success = 1;
+  map<string, string> result = 2;
+  string error_message = 3;
+}
+
+// 获取可用GPU请求
+message GetAvailableGpusRequest {
+}
+
+// 获取可用GPU响应
+message GetAvailableGpusResponse {
+  repeated GPUInfo gpus = 1;
+}
+
+// GPU共享服务
+service GPUShareService {
+  // Worker相关
+  rpc RegisterWorker(RegisterWorkerRequest) returns (RegisterWorkerResponse);
+  rpc UpdateWorkerGpus(UpdateWorkerGpusRequest) returns (UpdateWorkerGpusResponse);
+  rpc UpdateWorkerHeartbeat(UpdateWorkerHeartbeatRequest) returns (UpdateWorkerHeartbeatResponse);
+
+  // 任务相关
+  rpc SubmitTask(SubmitTaskRequest) returns (SubmitTaskResponse);
+  rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse);
+  rpc GetTaskResult(GetTaskResultRequest) returns (GetTaskResultResponse);
+
+  // GPU相关
+  rpc GetAvailableGpus(GetAvailableGpusRequest) returns (GetAvailableGpusResponse);
+}

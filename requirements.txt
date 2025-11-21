@@ -1,0 +1,31 @@
+# 核心依赖
+flask==2.3.3
+flask-cors==4.0.0
+grpcio==1.57.0
+grpcio-tools==1.57.0
+protobuf==4.24.2
+numpy==1.24.3
+psutil==5.9.5
+
+# GPU相关
+pynvml==11.5.0
+
+# 安全相关
+bcrypt==4.0.1
+PyJWT==2.8.0
+cryptography==41.0.4
+
+# 数据处理
+pandas==2.0.3
+matplotlib==3.7.2
+
+# 日志和监控
+colorlog==6.7.0
+
+# 测试相关
+pytest==7.4.0
+pytest-cov==4.1.0
+
+# 其他工具
+requests==2.31.0
+setuptools==69.0.0

@@ -1,0 +1,179 @@
+syntax = "proto3";
+
+package gpu_share;
+
+// GPU信息
+message GPUInfo {
+  string gpu_id = 1;
+  string name = 2;
+  int32 memory_total = 3;    // MB
+  int32 memory_used = 4;     // MB
+  float utilization = 5;      // 0-100%
+  float temperature = 6;      // 摄氏度
+  float power_usage = 7;      // 瓦特
+  string compute_capability = 8;
+  bool is_available = 9;
+}
+
+// Worker信息
+message WorkerInfo {
+  string worker_id = 1;
+  string hostname = 2;
+  string platform = 3;      // Windows, Linux, Docker, Android
+  repeated GPUInfo gpu_list = 4;
+  map<string, string> metadata = 5;
+}
+
+// 任务状态
+enum TaskStatus {
+  PENDING = 0;
+  RUNNING = 1;
+  COMPLETED = 2;
+  FAILED = 3;
+  CANCELLED = 4;
+  TIMEOUT = 5;
+}
+
+// 任务优先级
+enum TaskPriority {
+  LOW = 0;
+  NORMAL = 1;
+  HIGH = 2;
+  URGENT = 3;
+}
+
+// 任务信息
+message TaskInfo {
+  string task_id = 1;
+  string task_type = 2;
+  map<string, string> parameters = 3;
+  TaskPriority priority = 4;
+  int32 timeout = 5;         // 秒，0表示无超时
+  int32 max_retries = 6;
+}
+
+// 任务结果
+message TaskResult {
+  string task_id = 1;
+  TaskStatus status = 2;
+  map<string, string> result = 3;
+  string error_message = 4;
+  int32 retry_count = 5;
+}
+
+// 文件传输请求
+message FileTransferRequest {
+  string file_id = 1;
+  string file_name = 2;
+  int64 file_size = 3;
+  bytes chunk_data = 4;
+  int32 chunk_index = 5;
+  int32 total_chunks = 6;
+  bool is_compressed = 7;
+}
+
+// 文件传输响应
+message FileTransferResponse {
+  string file_id = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+// Worker注册请求
+message RegisterRequest {
+  WorkerInfo worker_info = 1;
+}
+
+// Worker注册响应
+message RegisterResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// 更新GPU状态请求
+message UpdateGPUStatusRequest {
+  string worker_id = 1;
+  repeated GPUInfo gpu_list = 2;
+}
+
+// 更新GPU状态响应
+message UpdateResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// 心跳请求
+message HeartbeatRequest {
+  string worker_id = 1;
+  int64 timestamp = 2;
+}
+
+// 心跳响应
+message HeartbeatResponse {
+  bool success = 1;
+  int64 timestamp = 2;
+}
+
+// 任务分配请求
+message TaskAssignmentRequest {
+  string worker_id = 1;
+  TaskInfo task_info = 2;
+}
+
+// 任务分配响应
+message TaskAssignmentResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// 任务结果报告请求
+message ReportTaskResultRequest {
+  string worker_id = 1;
+  TaskResult task_result = 2;
+}
+
+// 任务结果报告响应
+message ResultResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// 设备发现广播
+message DeviceDiscovery {
+  string server_id = 1;
+  string server_host = 2;
+  int32 server_port = 3;
+  int64 timestamp = 4;
+}
+
+// 主节点服务定义
+service GPUMasterService {
+  // Worker注册
+  rpc RegisterWorker(RegisterRequest) returns (RegisterResponse);
+
+  // 更新GPU状态
+  rpc UpdateGPUStatus(UpdateGPUStatusRequest) returns (UpdateResponse);
+
+  // 心跳
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+
+  // 报告任务结果
+  rpc ReportTaskResult(ReportTaskResultRequest) returns (ResultResponse);
+
+  // 文件传输
+  rpc UploadFile(stream FileTransferRequest) returns (FileTransferResponse);
+  rpc DownloadFile(FileTransferRequest) returns (stream FileTransferResponse);
+}
+
+// Worker节点服务定义
+service GPUWorkerService {
+  // 任务分配
+  rpc AssignTask(TaskAssignmentRequest) returns (TaskAssignmentResponse);
+
+  // 取消任务
+  rpc CancelTask(TaskInfo) returns (TaskAssignmentResponse);
+
+  // 文件传输
+  rpc UploadFile(stream FileTransferRequest) returns (FileTransferResponse);
+  rpc DownloadFile(FileTransferRequest) returns (stream FileTransferResponse);
+}

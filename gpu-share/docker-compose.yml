@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  gpu-share-master:
+    build: .
+    container_name: gpu-share-master
+    ports:
+      - "5000:5000"  # Web界面
+      - "5001:5001"  # gRPC主节点服务
+      - "5002:5002"  # gRPC Worker节点服务
+    volumes:
+      - ./data:/app/data  # 持久化数据
+    environment:
+      - HOST=0.0.0.0
+      - PORT=5000
+      - DEBUG=false
+    restart: unless-stopped
+
+  gpu-share-worker:
+    build: .
+    container_name: gpu-share-worker
+    depends_on:
+      - gpu-share-master
+    volumes:
+      - ./data:/app/data  # 共享数据
+    environment:
+      - WORKER_ID=worker-1
+      - MASTER_HOST=gpu-share-master
+      - MASTER_PORT=5001
+      - PLATFORM=docker
+    command: ["python", "workers/docker/worker.py"]
+    restart: unless-stopped
+    deploy:
+      replicas: 2  # 启动2个Worker容器
